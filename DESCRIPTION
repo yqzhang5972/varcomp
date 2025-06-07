@@ -1,0 +1,25 @@
+Package: varcomp
+Type: Package
+Title: Tests and confidence intervals for a proportion of variability, or heritability
+Version: 1.0
+Date: 2024-11-01
+Authors@R: c(
+    person("Yiqiao", "Zhang", email = "yiqiaozhang@ufl.edu", role = c("aut","cre")),
+    person("Karl Oskar", "Ekvall", email = "k.o.ekvall@gmail.com", role = "aut"),
+    person("Aaron", "Molstad", email = "amolstad@umn.edu", role = "ctb"))
+Description: Compute tests and confidence intervals for a proportion of variability, or heritability, using the restricted score standardized by expected information. The package currently assumes a linear mixed model, or a variance component model, with one variance component and an error term.
+License: MIT + file LICENSE
+Imports: Rcpp (>= 1.0.11), RcppEigen, matrixcalc, stats
+LinkingTo: Rcpp, RcppEigen
+URL: https://github.com/yqzhang5972/varcomp
+BugReports: https://github.com/yqzhang5972/varcomp/issues
+Encoding: UTF-8
+Suggests: 
+    knitr,
+    rmarkdown,
+    latex2exp,
+    dplyr,
+    ggplot2
+VignetteBuilder: knitr
+RoxygenNote: 7.3.2
+Roxygen: list(markdown = TRUE)
