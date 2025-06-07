@@ -1,5 +1,5 @@
 
-# lmmvar
+# varcomp
 
 An R package for computing test statistics and confidence intervals for
 a variance component or proportion in a linear mixed model using the
@@ -11,12 +11,12 @@ This package will be updated sporadically. Please contact
 
 ### Installation
 
-lmmvar can be loaded into R through the `devtools` package:
+varcomp can be loaded into R through the `devtools` package:
 
 ``` r
 # install.packages("devtools")
 # library(devtools)
-# devtools::install_github("yqzhang5972/lmmvar")
+# devtools::install_github("yqzhang5972/varcomp")
 ```
 
 ### Citation instructions
