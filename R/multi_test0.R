@@ -21,8 +21,11 @@ loglik1_test0_s <- function(par, y1, K1_list, K2, i1) { # K2 is a vector of diag
   # Add identity term (residual error variance)
   S <- S + diag(par[length(par)-1] * K2[i1]  + par[length(par)] )  # Last element is residual variance
 
+  # Find upper triangular Cholesky factor of S
+  RS <- chol(S)
+
   # Compute log-likelihood
-  l <- -(determinant(S)$modulus[1] + crossprod(y1, chol2inv(chol(S)) %*% y1)) / 2
+  l <- -(2*sum(log(diag(RS))) + crossprod(solve(t(RS), y1))) / 2 # -(determinant(S)$modulus[1] + crossprod(y1, chol2inv(chol(S)) %*% y1)) / 2
   return(l)
 }
 
@@ -61,20 +64,35 @@ loglik01_test0_s <- function(par, rho, y0, y1, K1_list, K2, i1, i0) { # K1_list 
   S11 <- Reduce(`+`, lapply(1:n_K1, function(j) rho[j] * K1_list[[j]][i1, i1])) +
     diag(par[1] * K2[i1] + par[length(par)])
 
-  # Compute conditional covariance
-  S01.11_inv <- S01 %*% chol2inv(chol(S11))
-  S <- S00 - tcrossprod(S01.11_inv, S01)
+  # # Compute conditional covariance
+  # S01.11_inv <- S01 %*% chol2inv(chol(S11))
+  # S <- S00 - tcrossprod(S01.11_inv, S01)
+  # # Symmetrize
+  # S <- (S + t(S)) / 2
+  # if (!matrixcalc::is.positive.definite(S)) {
+  #   return(-1e10)
+  # }
+  # # Compute log-likelihood
+  # res <- y0 - S01.11_inv %*% y1
+  # l <- -(determinant(S)$modulus[1] + crossprod(res, chol2inv(chol(S)) %*% res)) / 2
+
+  S11inv.01t <- solve(S11, t(S01))
+  S <- S00 - S01 %*% S11inv.01t
 
   # Symmetrize
-  S <- (S + t(S)) / 2
+  S <- Matrix::forceSymmetric(S)  # (S + t(S)) / 2 # as.matrix
 
-  if (!matrixcalc::is.positive.definite(S)) {
+  # Find upper triangular Cholesky factor of S
+  RS <- try(chol(S), silent = T)
+
+  # check if S is pd, matrixcalc::is.positive.definite(S)
+  if(inherits(RS, "try-error")) {
     return(-1e10)
   }
 
   # Compute log-likelihood
-  res <- y0 - S01.11_inv %*% y1
-  l <- -(determinant(S)$modulus[1] + crossprod(res, chol2inv(chol(S)) %*% res)) / 2
+  res <- y0 - crossprod(S11inv.01t, y1)  # S01.11_inv %*% y1
+  l <- -(2*sum(log(diag(RS))) + crossprod(solve(t(RS), res))) / 2
 
   return(l)
 }
@@ -149,7 +167,10 @@ loglik1_test0_h <- function(par, y1, K1_list, K2, i1) { # par = h12, h22,..., si
   S <- par[length(par)] * (Reduce(`+`, lapply(1:n_K1, function(j) {par[j] * K1_list[[j]][i1, i1]})) +
                              diag(par[length(par)-1]*K2[i1] + (1 - sum(par[-length(par)]))))
 
-  l <- -(determinant(S)$modulus[1] + crossprod(y1, chol2inv(chol(S)) %*% y1)) / 2
+  # Find upper triangular Cholesky factor of S
+  RS <- chol(S)
+
+  l <- -(2*sum(log(diag(RS))) + crossprod(solve(t(RS), y1))) / 2 # -(determinant(S)$modulus[1] + crossprod(y1, chol2inv(chol(S)) %*% y1)) / 2
   return(l)
 }
 
@@ -173,17 +194,19 @@ grad1_test0_h <- function(par, y1, K1_list, K2, i1) { # par = h12, h22,...h2M, s
   S <- par[length(par)] * (Reduce(`+`, lapply(1:n_K1, function(j) {par[j] * K1_list[[j]][i1, i1]})) +
                              diag(par[length(par)-1]*K2[i1] + (1 - sum(par[-length(par)]))))
 
-  Sinv <- chol2inv(chol(S))
-  res <- Sinv%*%y1
+  # Find upper triangular Cholesky factor of S
+  RS <- chol(S)
+  # res <- Sinv%*%y1
+  res <- solve(RS, solve(t(RS), y1))
 
   u1_vec <- sapply(1:n_K1, function(j) {
     Dj <- K1_list[[j]][i1, i1] - diag(length(y1))
-    par[length(par)] / 2 * (crossprod(res, Dj %*% res) - sum(diag(Sinv %*% Dj)))
+    par[length(par)] / 2 * (crossprod(res, Dj %*% res) - sum(diag(solve(RS, solve(t(RS), Dj))))) # sum(diag(Sinv %*% Dj)))
   })
 
   D2 <- K2[i1] - 1
-  u2 <- par[length(par)] / 2 * (crossprod(res, D2 * res) - sum(diag(Sinv * D2)))
-  usigma2 <- 1/2/par[length(par)] * (crossprod(y1, Sinv%*%y1) - length(y1))
+  u2 <- par[length(par)] / 2 * (crossprod(res, D2 * res) - sum(diag(solve(RS, solve(t(RS), D2))))) # sum(diag(Sinv * D2)))
+  usigma2 <- 1/2/par[length(par)] * (crossprod(y1, res) - length(y1))
 
   return(c(u1_vec, u2, usigma2))
 }
@@ -213,11 +236,29 @@ loglik01_test0_h <- function(par, rho, y0, y1, K1_list, K2, i1, i0) { # length o
   S01 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i0, i1]})))       # + par[1]*K2[i0, i1])
   S11 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i1, i1]})) +
                              diag(par[1] * K2[i1] + (1 - sum(rho) - par[1])))
-  # print(paste("last eigen:", eigen(S11)$values[dim(S11)[1]]))
-  S01.11_inv <- S01 %*% chol2inv(chol(S11))
-  S <- S00 - tcrossprod(S01.11_inv, S01)
-  l <- -(determinant(S)$modulus[1] +
-           crossprod(y0-S01.11_inv%*%y1, chol2inv(chol(S))%*%(y0-S01.11_inv%*%y1))) / 2
+  # # print(paste("last eigen:", eigen(S11)$values[dim(S11)[1]]))
+  # S01.11_inv <- S01 %*% chol2inv(chol(S11))
+  # S <- S00 - tcrossprod(S01.11_inv, S01)
+  # l <- -(determinant(S)$modulus[1] +
+  #          crossprod(y0-S01.11_inv%*%y1, chol2inv(chol(S))%*%(y0-S01.11_inv%*%y1))) / 2
+
+  S11inv.01t <- solve(S11, t(S01))
+  S <- S00 - S01 %*% S11inv.01t
+
+  # Symmetrize
+  S <- Matrix::forceSymmetric(S)  # (S + t(S)) / 2 # as.matrix
+
+  # Find upper triangular Cholesky factor of S
+  RS <- try(chol(S), silent = T)
+
+  # check if S is pd, matrixcalc::is.positive.definite(S)
+  if(inherits(RS, "try-error")) {
+    return(-1e10)
+  }
+
+  # Compute log-likelihood
+  res <- y0 - crossprod(S11inv.01t, y1)  # S01.11_inv %*% y1
+  l <- -(2*sum(log(diag(RS))) + crossprod(solve(t(RS), res))) / 2
   return(l)
 }
 
