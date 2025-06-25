@@ -5,8 +5,6 @@
 \title{Calculate Log-Likelihood (Naive Method, Sigma2 Parameterization, Full Model)}
 \usage{
 loglik1_naive_s(par, y1, K1_list, K2_list, i1)
-
-loglik1_naive_s(par, y1, K1_list, K2_list, i1)
 }
 \arguments{
 \item{par}{A numeric vector of variance component parameters (s21, s22, ..., s2e).
@@ -22,14 +20,8 @@ The last element is assumed to be the residual error variance (s2e).}
 }
 \value{
 The log-likelihood value.
-
-The log-likelihood value.
 }
 \description{
-This function computes the log-likelihood for the full model (Y1) using a
-"naive" approach with full covariance matrices and a direct sigma2 parameterization
-(s21, s22, ..., s2e).
-
 This function computes the log-likelihood for the full model (Y1) using a
 "naive" approach with full covariance matrices and a direct sigma2 parameterization
 (s21, s22, ..., s2e).

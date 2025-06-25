@@ -4,16 +4,17 @@
 \alias{loglik01_naive_h}
 \title{Calculate Log-Likelihood (Naive Method, H2/S2 Parameterization, Conditional Model)}
 \usage{
-loglik01_naive_h(par, rho, y0, y1, K1_list, K2_list, i1, i0)
+loglik01_naive_h(par, rho, s2hat = NULL, y0, y1, K1_list, K2_list, i1, i0)
 }
 \arguments{
-\item{par}{A numeric vector of parameters (h2_k, ..., h2_total, s2) for the
-parameters being optimized under the null hypothesis. The last element
-\code{par[length(par)]} is the total variance \code{s2}. The preceding elements are
-proportions of variance (\code{h2_i}) for \code{K2_list}.}
+\item{par}{A numeric vector of parameters (h21, h22, ..., h2M) for the
+parameters being optimized under the null hypothesis. The preceding elements are
+proportions of variance (\code{h2_i}) for \code{K2_list}. The the total variance \code{s2} has closed form estimation.}
 
 \item{rho}{A numeric vector of fixed \code{h2} values (h2_1, h2_2, ...) under the null
 hypothesis. These correspond to \code{K1_list}.}
+
+\item{s2hat}{A numeric value of given estimation of s2. Default as NULL.}
 
 \item{y0}{Numeric vector of observed data for the Y0 subset.}
 

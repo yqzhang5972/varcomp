@@ -4,7 +4,7 @@
 \alias{ratio_test0_h}
 \title{Calculate Likelihood Ratio (Test for Zero Method, H2/S2 Parameterization)}
 \usage{
-ratio_test0_h(y0, y1, K1_list, K2, i1, i0, opt1, opt01)
+ratio_test0_h(y0, y1, K1_list, K2, i1, i0, opt1, s2hat1, opt01)
 }
 \arguments{
 \item{y0}{Numeric vector of observed data for the Y0 subset.}
@@ -21,6 +21,8 @@ ratio_test0_h(y0, y1, K1_list, K2, i1, i0, opt1, opt01)
 
 \item{opt1}{Optimization result object for the alternative hypothesis (full model).
 Must contain \verb{$par} for estimated parameters.}
+
+\item{s2hat1}{Numeric scaler as estimation of s2 based on Y1.}
 
 \item{opt01}{Optimization result object for the null hypothesis. Must contain \verb{$value} for the log-likelihood.}
 }

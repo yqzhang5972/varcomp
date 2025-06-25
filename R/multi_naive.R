@@ -1,5 +1,4 @@
 
-library(matrixcalc)
 
 #' Calculate Log-Likelihood (Naive Method, Sigma2 Parameterization, Full Model)
 #'

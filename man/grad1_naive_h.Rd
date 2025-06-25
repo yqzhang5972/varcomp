@@ -7,9 +7,8 @@
 grad1_naive_h(par, y1, K1_list, K2_list, i1)
 }
 \arguments{
-\item{par}{A numeric vector of parameters (h12, h22, ..., s2). The last element
-\code{par[length(par)]} is the total variance \code{s2}. The preceding elements are
-proportions of variance (\code{h2_i}).}
+\item{par}{A numeric vector of parameters (h21, h22, ..., h2M). The preceding elements are
+proportions of variance (\code{h2_i}). The total variance \code{s2} has closed form estimation.}
 
 \item{y1}{Numeric vector of observed data for the Y1 subset.}
 
@@ -25,5 +24,5 @@ A numeric vector of gradients corresponding to each parameter in \code{par}.
 \description{
 This function computes the gradient of the log-likelihood for the full model (Y1)
 using a "naive" approach with full covariance matrices and an h2/s2 parameterization.
-\code{par} is ordered as (h12, h22, ..., s2).
+\code{par} is ordered as (h21, h22, ..., h2M).
 }

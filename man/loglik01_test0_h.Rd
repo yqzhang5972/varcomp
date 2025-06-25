@@ -4,14 +4,11 @@
 \alias{loglik01_test0_h}
 \title{Calculate Log-Likelihood (Test for Zero Method, H2/S2 Parameterization, Conditional Model)}
 \usage{
-loglik01_test0_h(par, rho, y0, y1, K1_list, K2, i1, i0)
+loglik01_test0_h(par, y0, y1, K1_list, K2, i1, i0)
 }
 \arguments{
-\item{par}{A numeric vector of parameters for the null hypothesis. \code{par[1]} is
+\item{par}{A numeric vector of parameters for (h21, h22, ..., h2M, s2). \code{par[1,...,M]} is
 the \code{h2} for \code{K2}, and \code{par[length(par)]} is the total variance \code{s2}.}
-
-\item{rho}{A numeric vector of fixed \code{h2} values (h2_1, h2_2, ...) under the null
-hypothesis. These correspond to \code{K1_list}.}
 
 \item{y0}{Numeric vector of observed data for the Y0 subset.}
 

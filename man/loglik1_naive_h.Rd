@@ -4,12 +4,11 @@
 \alias{loglik1_naive_h}
 \title{Calculate Log-Likelihood (Naive Method, H2/S2 Parameterization, Full Model)}
 \usage{
-loglik1_naive_h(par, y1, K1_list, K2_list, i1)
+loglik1_naive_h(par, y1, K1_list, K2_list, i1, return.s2phat = FALSE)
 }
 \arguments{
-\item{par}{A numeric vector of parameters (h12, h22, ..., s2). The last element
-\code{par[length(par)]} is the total variance \code{s2}. The preceding elements are
-proportions of variance (\code{h2_i}).}
+\item{par}{A numeric vector of parameters (h21, h22, ..., h2M). The elements are
+proportions of variance (\code{h2_i}). The total variance \code{s2} has closed form estimation.}
 
 \item{y1}{Numeric vector of observed data for the Y1 subset.}
 
@@ -18,6 +17,8 @@ proportions of variance (\code{h2_i}).}
 \item{K2_list}{A list of full covariance matrices corresponding to the second set of \code{h2_i} parameters.}
 
 \item{i1}{Indices used to subset the full covariance matrices for Y1.}
+
+\item{return.s2phat}{Boolean. Determine if estimation of s2 is returned, default at FALSE}
 }
 \value{
 The log-likelihood value.
@@ -25,5 +26,5 @@ The log-likelihood value.
 \description{
 This function computes the log-likelihood for the full model (Y1) using a
 "naive" approach with full covariance matrices and an h2/s2 parameterization.
-\code{par} is ordered as (h12, h22, ..., s2).
+\code{par} is ordered as (h21, h22, ..., h2M). estimation of s2 has closed form
 }

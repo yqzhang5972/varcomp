@@ -230,7 +230,7 @@ grad1_test0_h <- function(par, y1, K1_list, K2, i1) { # par = h12, h22,...h2M, s
 #' This function computes the log-likelihood for the conditional model (Y0|Y1) in the
 #' "test for zero" scenario, using h2/s2 parameterization.
 #'
-#' @param par A numeric vector of parameters for (h21, h22, ..., h2M, s2). `par[M]` is
+#' @param par A numeric vector of parameters for (h21, h22, ..., h2M, s2). `par[1,...,M]` is
 #'   the `h2` for `K2`, and `par[length(par)]` is the total variance `s2`.
 #' @param y0 Numeric vector of observed data for the Y0 subset.
 #' @param y1 Numeric vector of observed data for the Y1 subset.
@@ -303,6 +303,7 @@ loglik01_H0_test0_h <- function(par, y0, K2, i0) { # to find theta_hat under h_1
 #' @param i0 Indices used to subset the data and K matrices for Y0.
 #' @param opt1 Optimization result object for the alternative hypothesis (full model).
 #'   Must contain `$par` for estimated parameters.
+#' @param s2hat1 Numeric scaler as estimation of s2 based on Y1.
 #' @param opt01 Optimization result object for the null hypothesis. Must contain `$value` for the log-likelihood.
 #' @return The likelihood ratio (exp(L_theta1 - L_rho)).
 ratio_test0_h <- function(y0, y1, K1_list, K2, i1, i0, opt1, s2hat1, opt01) { # K2 is vector

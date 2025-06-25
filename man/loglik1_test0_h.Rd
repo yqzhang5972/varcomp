@@ -4,12 +4,11 @@
 \alias{loglik1_test0_h}
 \title{Calculate Log-Likelihood (Test for Zero Method, H2/S2 Parameterization, Full Model)}
 \usage{
-loglik1_test0_h(par, y1, K1_list, K2, i1)
+loglik1_test0_h(par, y1, K1_list, K2, i1, return.s2phat = FALSE)
 }
 \arguments{
-\item{par}{A numeric vector of parameters (h12, h22, ..., h2M, s2).
-\code{par[1:n_K1]} corresponds to \code{K1_list}, \code{par[length(par)-1]} corresponds to \code{K2},
-and \code{par[length(par)]} is the total variance \code{s2}.}
+\item{par}{A numeric vector of parameters (h21, h22, ..., h2M). The elements are
+proportions of variance (\code{h2_i}). The total variance \code{s2} has closed form estimation.}
 
 \item{y1}{Numeric vector of observed data for the Y1 subset.}
 
@@ -18,6 +17,8 @@ and \code{par[length(par)]} is the total variance \code{s2}.}
 \item{K2}{A numeric vector representing the diagonal values of the transformed K2 matrix.}
 
 \item{i1}{Indices used to subset the data and K matrices for Y1.}
+
+\item{return.s2phat}{Boolean. Determine if estimation of s2 is returned, default at FALSE}
 }
 \value{
 The log-likelihood value.
