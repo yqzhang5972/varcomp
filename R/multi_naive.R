@@ -125,26 +125,34 @@ ratio_naive_s <- function(y0, y1, K1_list, K2_list, i1, i0, opt1, opt01) {
 #'
 #' This function computes the log-likelihood for the full model (Y1) using a
 #' "naive" approach with full covariance matrices and an h2/s2 parameterization.
-#' `par` is ordered as (h12, h22, ..., s2).
+#' `par` is ordered as (h21, h22, ..., h2M). estimation of s2 has closed form
 #'
-#' @param par A numeric vector of parameters (h12, h22, ..., s2). The last element
-#'   `par[length(par)]` is the total variance `s2`. The preceding elements are
-#'   proportions of variance (`h2_i`).
+#' @param par A numeric vector of parameters (h21, h22, ..., h2M). The elements are
+#'   proportions of variance (`h2_i`). The total variance `s2` has closed form estimation.
 #' @param y1 Numeric vector of observed data for the Y1 subset.
 #' @param K1_list A list of full covariance matrices corresponding to the first set of `h2_i` parameters.
 #' @param K2_list A list of full covariance matrices corresponding to the second set of `h2_i` parameters.
 #' @param i1 Indices used to subset the full covariance matrices for Y1.
+#' @param return.s2phat Boolean. Determine if estimation of s2 is returned, default at FALSE
 #' @return The log-likelihood value.
-loglik1_naive_h <- function(par, y1, K1_list, K2_list, i1) {
+loglik1_naive_h <- function(par, y1, K1_list, K2_list, i1, return.s2phat= FALSE) {
+  n1 <- length(y1)
   K_list <- c(K1_list, K2_list)
   n_K <- length(K_list)
   S <- Reduce(`+`, lapply(1:n_K, function(j) {par[j] * K_list[[j]][i1, i1]}))
-  S <- par[length(par)] * (S + (1 - sum(par[-length(par)])) * diag(length(y1)))
+  S <- S + (1 - sum(par)) * diag(n1) # Sigma / s2
 
   # Find upper triangular Cholesky factor of S
   RS <- chol(S)
 
-  l <- -(2*sum(log(diag(RS))) + crossprod(solve(t(RS), y1))) / 2 # -(determinant(S)$modulus[1] + crossprod(y1, chol2inv(chol(S)) %*% y1)) / 2
+  # Find estimation of s2
+  s2hat <- (crossprod(solve(t(RS), y1))) / n1
+
+  if(return.s2phat) {
+    return(s2hat)
+  }
+
+  l <- -(2*sum(log(diag(RS))) + n1 * log(s2hat) + n1) / 2 # -(determinant(S)$modulus[1] + crossprod(y1, chol2inv(chol(S)) %*% y1)) / 2
   return(l)
 }
 
@@ -152,35 +160,40 @@ loglik1_naive_h <- function(par, y1, K1_list, K2_list, i1) {
 #'
 #' This function computes the gradient of the log-likelihood for the full model (Y1)
 #' using a "naive" approach with full covariance matrices and an h2/s2 parameterization.
-#' `par` is ordered as (h12, h22, ..., s2).
+#' `par` is ordered as (h21, h22, ..., h2M).
 #'
-#' @param par A numeric vector of parameters (h12, h22, ..., s2). The last element
-#'   `par[length(par)]` is the total variance `s2`. The preceding elements are
-#'   proportions of variance (`h2_i`).
+#' @param par A numeric vector of parameters (h21, h22, ..., h2M). The preceding elements are
+#'   proportions of variance (`h2_i`). The total variance `s2` has closed form estimation.
 #' @param y1 Numeric vector of observed data for the Y1 subset.
 #' @param K1_list A list of full covariance matrices corresponding to the first set of `h2_i` parameters.
 #' @param K2_list A list of full covariance matrices corresponding to the second set of `h2_i` parameters.
 #' @param i1 Indices used to subset the full covariance matrices for Y1.
 #' @return A numeric vector of gradients corresponding to each parameter in `par`.
-grad1_naive_h <- function(par, y1, K1_list, K2_list, i1) { # par = h12, h22,..., sigma2
+grad1_naive_h <- function(par, y1, K1_list, K2_list, i1) { # par = h12, h22,..., h2M
   K_list <- c(K1_list, K2_list)
   n_K <- length(K_list)
+  n1 <- length(y1)
 
   S <- Reduce(`+`, lapply(1:n_K, function(j) {par[j] * K_list[[j]][i1, i1]}))
-  S <- par[length(par)] * (S + (1 - sum(par[-length(par)])) * diag(length(y1)))
+  S <- S + (1 - sum(par)) * diag(n1) # Sigma / s2
 
   # Find upper triangular Cholesky factor of S
   RS <- chol(S)
-  # res <- Sinv%*%y1
-  res <- solve(RS, solve(t(RS), y1))
+
+  # Find estimation of s2
+  temp <- solve(t(RS), y1)
+  s2hat <- (crossprod(temp)) / n1
+
+  # res <- Sigma_inv%*%y1 * s2
+  res <- solve(RS, temp)
 
   u_vec <- sapply(1:n_K, function(j) {
-    Dj <- K_list[[j]][i1, i1] - diag(length(y1))
-    par[length(par)]/2 * (crossprod(res, Dj %*% res) - sum(diag(solve(RS, solve(t(RS), Dj))))) # sum(diag(Sinv%*%Dj))
+    Dj <- K_list[[j]][i1, i1] - diag(n1)
+    (crossprod(res, Dj %*% res) / s2hat - sum(diag(solve(RS, solve(t(RS), Dj))))) / 2 # sum(diag(Sinv%*%Dj)) # par[length(par)]*
   })
 
-  usigma2 <- 1/2/par[length(par)] * (crossprod(y1, res) - length(y1))
-  return(c(u_vec, usigma2))
+  # usigma2 <- 1/2/par[length(par)] * (crossprod(y1, res) - length(y1))
+  return(u_vec) # (c(u_vec, usigma2))
 }
 
 
@@ -189,12 +202,12 @@ grad1_naive_h <- function(par, y1, K1_list, K2_list, i1) { # par = h12, h22,...,
 #' This function computes the log-likelihood for the conditional model (Y0|Y1) using a
 #' "naive" approach with full covariance matrices and an h2/s2 parameterization.
 #'
-#' @param par A numeric vector of parameters (h2_k, ..., h2_total, s2) for the
-#'   parameters being optimized under the null hypothesis. The last element
-#'   `par[length(par)]` is the total variance `s2`. The preceding elements are
-#'   proportions of variance (`h2_i`) for `K2_list`.
+#' @param par A numeric vector of parameters (h21, h22, ..., h2M) for the
+#'   parameters being optimized under the null hypothesis. The preceding elements are
+#'   proportions of variance (`h2_i`) for `K2_list`. The the total variance `s2` has closed form estimation.
 #' @param rho A numeric vector of fixed `h2` values (h2_1, h2_2, ...) under the null
 #'   hypothesis. These correspond to `K1_list`.
+#' @param s2hat A numeric value of given estimation of s2. Default as NULL.
 #' @param y0 Numeric vector of observed data for the Y0 subset.
 #' @param y1 Numeric vector of observed data for the Y1 subset.
 #' @param K1_list A list of full covariance matrices corresponding to the `rho` parameters.
@@ -202,19 +215,21 @@ grad1_naive_h <- function(par, y1, K1_list, K2_list, i1) { # par = h12, h22,...,
 #' @param i1 Indices used to subset the full covariance matrices for Y1.
 #' @param i0 Indices used to subset the full covariance matrices for Y0.
 #' @return The log-likelihood value.
-loglik01_naive_h <- function(par, rho, y0, y1, K1_list, K2_list, i1, i0) { # K1_list <--> rho, K2_list <--> par to be optimized
+loglik01_naive_h <- function(par, rho, s2hat = NULL, y0, y1, K1_list, K2_list, i1, i0) { # K1_list <--> rho, K2_list <--> par to be optimized
   n_K1 <- length(K1_list)
   n_K2 <- length(K2_list)
+  n0 <- length(y0)
+  n1 <- length(y1)
 
-  S00 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i0, i0]})) +
-                             (1-rho-sum(par[-length(par)]))*diag(length(y0)) +
-                             Reduce(`+`, lapply(1:n_K2, function(j) {par[j] * K2_list[[j]][i0, i0]})))
+  S00 <- Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i0, i0]})) +
+                             (1-rho-sum(par))*diag(n0) +
+                             Reduce(`+`, lapply(1:n_K2, function(j) {par[j] * K2_list[[j]][i0, i0]})) # Sigma00 / s2, sum(par[-length(par)]) -> sum(par)
 
-  S01 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i0, i1]})) +
-                             Reduce(`+`, lapply(1:n_K2, function(j) {par[j] * K2_list[[j]][i0, i1]})))
-  S11 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i1, i1]})) +
-                             (1-rho-sum(par[-length(par)]))*diag(length(y1)) +
-                             Reduce(`+`, lapply(1:n_K2, function(j) {par[j] * K2_list[[j]][i1, i1]})))
+  S01 <- Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i0, i1]})) +
+                             Reduce(`+`, lapply(1:n_K2, function(j) {par[j] * K2_list[[j]][i0, i1]}))
+  S11 <- Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i1, i1]})) +
+                             (1-rho-sum(par))*diag(n1) +
+                             Reduce(`+`, lapply(1:n_K2, function(j) {par[j] * K2_list[[j]][i1, i1]}))
 
   # S01.11_inv <- S01 %*% chol2inv(chol(S11))
   # S <- S00 - tcrossprod(S01.11_inv, S01)
@@ -241,9 +256,17 @@ loglik01_naive_h <- function(par, rho, y0, y1, K1_list, K2_list, i1, i0) { # K1_
     return(-1e10)
   }
 
-  # Compute log-likelihood
   res <- y0 - crossprod(S11inv.01t, y1)  # S01.11_inv %*% y1
-  l <- -(2*sum(log(diag(RS))) + crossprod(solve(t(RS), res))) / 2
+
+  if (is.null(s2hat)) {                    # optimizing step
+    # Find estimation of s2
+    s2hat <- crossprod(solve(t(RS), res)) / n0
+    # Compute log-likelihood
+    l <- -(2*sum(log(diag(RS))) + n0 * log(s2hat) + n0) / 2
+  } else {                                 # evaluation of theta1 step
+    l <- -(2*sum(log(diag(RS))) + n0 * log(s2hat) + crossprod(solve(t(RS), res)) / s2hat) / 2
+  }
+
   return(l)
 }
 
@@ -259,10 +282,11 @@ loglik01_naive_h <- function(par, rho, y0, y1, K1_list, K2_list, i1, i0) { # K1_
 #' @param i0 Indices used to subset the full covariance matrices for Y0.
 #' @param opt1 Optimization result object for the alternative hypothesis (full model).
 #'   Must contain `$par` for estimated parameters.
+#' @param s2hat1 Numeric scaler as estimation of s2 based on Y1.
 #' @param opt01 Optimization result object for the null hypothesis. Must contain `$value` for the log-likelihood.
 #' @return The likelihood ratio (exp(L_theta1 - L_rho)).
-ratio_naive_h <- function(y0, y1, K1_list, K2_list, i1, i0, opt1, opt01) { # y0
-  l_theta1 <- loglik01_naive_h(opt1$par[-(1:length(K1_list))], opt1$par[1:length(K1_list)],
+ratio_naive_h <- function(y0, y1, K1_list, K2_list, i1, i0, opt1, s2hat1, opt01) { # y0
+  l_theta1 <- loglik01_naive_h(par=opt1$par[-(1:length(K1_list))], rho=opt1$par[1:length(K1_list)], s2hat = s2hat1,
                                y0=y0, y1=y1, K1_list=K1_list, K2_list=K2_list, i1=i1, i0=i0)
   l_rho <- opt01$value
   return(exp(l_theta1 - l_rho))
@@ -300,26 +324,32 @@ slrt_naive <- function(y, K1_list, K2_list, i1, i0, rho = 0, parameter.set = 'h2
   if (parameter.set == 'h2') {
     # find consMat and consVec
     consMat <- rbind(
-      c(-rep(1, n_K),0),           # h1 + h2 + ... + hJ ≤ 1 → -(h1 + ... + hJ) ≥ -1
-      diag(n_K+1)               # hi ≥ 0 , s2≥ 0
+      -rep(1, n_K),           # h1 + h2 + ... + hJ ≤ 1 → -(h1 + ... + hJ) ≥ -1
+      diag(n_K)               # hi ≥ 0
     )
-    consVec <- c(-1+TOL, rep(0, n_K+1))
+    consVec <- c(-1+TOL, rep(0, n_K))
 
     # find mles
-    opt1 = stats::constrOptim(theta = c(rep(1/(n_K+1), n_K), 1), loglik1_naive_h, control = list(fnscale=-1),
+    opt1 = stats::constrOptim(theta = rep(1/(n_K+1), n_K), loglik1_naive_h, control = list(fnscale=-1),
                               grad = grad1_naive_h, method = "BFGS", ui = consMat, ci=consVec,
                               y1=y1, K1_list=K1_list, K2_list=K2_list, i1=i1)
+    s2hat1 <- loglik1_naive_h(par=opt1$par, y1=y1, K1_list=K1_list, K2_list=K2_list, i1=i1, return.s2phat= TRUE)
 
     consMat01 <- rbind(
-      c(-rep(1, n_K2),0),           # hj + ... + hJ ≤ 1-sum(rho) → -(hj + ... + hJ) ≥ -1+sum(rho)
-      diag(n_K2+1)               # hi ≥ 0 , s2≥ 0
+      -rep(1, n_K2),           # hj + ... + hJ ≤ 1-sum(rho) → -(hj + ... + hJ) ≥ -1+sum(rho)
+      diag(n_K2)               # hi ≥ 0
     )
-    consVec01 <- c(-1+sum(rho)+TOL, rep(0, n_K2+1))
-    opt01 = stats::constrOptim(theta = c(rep((1-sum(rho))/(n_K2+1), n_K2), 1), loglik01_naive_h, control = list(fnscale=-1),
-                               grad = NULL, method = "Nelder-Mead", ui = consMat01, ci=consVec01,
-                               rho=rho, y0=y0, y1=y1, K1_list=K1_list, K2_list=K2_list, i1=i1, i0=i0)
-
-    teststat <- ratio_naive_h(y0=y0, y1=y1, K1_list=K1_list, K2_list=K2_list, i1=i1, i0=i0, opt1=opt1, opt01=opt01)
+    consVec01 <- c(-1+sum(rho)+TOL, rep(0, n_K2))
+    if (n_K2 == 1) { # one-dimensional optimization by Nelder-Mead is unreliable
+      opt01 = stats::optim(par = (1-sum(rho))/2, loglik01_naive_h, control = list(fnscale=-1),
+                           method = "L-BFGS-B", lower = 0, upper = 1-sum(rho)-TOL,
+                           rho=rho, y0=y0, y1=y1, K1_list=K1_list, K2_list=K2_list, i1=i1, i0=i0)
+    } else {
+      opt01 = stats::constrOptim(theta = rep((1-sum(rho))/(n_K2+1), n_K2), loglik01_naive_h, control = list(fnscale=-1),
+                                 grad = NULL, method = "Nelder-Mead", ui = consMat01, ci=consVec01,
+                                 rho=rho, y0=y0, y1=y1, K1_list=K1_list, K2_list=K2_list, i1=i1, i0=i0)
+    }
+    teststat <- ratio_naive_h(y0=y0, y1=y1, K1_list=K1_list, K2_list=K2_list, i1=i1, i0=i0, opt1=opt1, s2hat1=s2hat1, opt01=opt01)
     return(teststat)
 
   } else if (parameter.set == 'sigma2') { # num of pars is n_K+1

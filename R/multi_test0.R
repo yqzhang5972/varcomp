@@ -153,24 +153,32 @@ ratio_test0_s <- function(y0, y1, K1_list, K2, i1, i0, opt1, opt01) {
 #' "test for zero" scenario, using h2/s2 parameterization. K2 is assumed to be a
 #' single matrix whose diagonal values are used.
 #'
-#' @param par A numeric vector of parameters (h12, h22, ..., h2M, s2).
-#'   `par[1:n_K1]` corresponds to `K1_list`, `par[length(par)-1]` corresponds to `K2`,
-#'   and `par[length(par)]` is the total variance `s2`.
+#' @param par A numeric vector of parameters (h21, h22, ..., h2M). The elements are
+#'   proportions of variance (`h2_i`). The total variance `s2` has closed form estimation.
 #' @param y1 Numeric vector of observed data for the Y1 subset.
 #' @param K1_list A list of full covariance matrices (pre-transformed by V2) corresponding to the first set of `h2_i` parameters.
 #' @param K2 A numeric vector representing the diagonal values of the transformed K2 matrix.
 #' @param i1 Indices used to subset the data and K matrices for Y1.
+#' @param return.s2phat Boolean. Determine if estimation of s2 is returned, default at FALSE
 #' @return The log-likelihood value.
-loglik1_test0_h <- function(par, y1, K1_list, K2, i1) { # par = h12, h22,..., sigma2, K2 is a vector of diagonal values
+loglik1_test0_h <- function(par, y1, K1_list, K2, i1, return.s2phat = FALSE) { # par = h12, h22,..., h2M, K2 is a vector of diagonal values
+  n1 <- length(y1)
   n_K1 <- length(K1_list)
 
-  S <- par[length(par)] * (Reduce(`+`, lapply(1:n_K1, function(j) {par[j] * K1_list[[j]][i1, i1]})) +
-                             diag(par[length(par)-1]*K2[i1] + (1 - sum(par[-length(par)]))))
+  S <- Reduce(`+`, lapply(1:n_K1, function(j) {par[j] * K1_list[[j]][i1, i1]})) +
+                             diag(par[length(par)]*K2[i1] + (1 - sum(par))) # par[length(par)] * ()
 
   # Find upper triangular Cholesky factor of S
   RS <- chol(S)
 
-  l <- -(2*sum(log(diag(RS))) + crossprod(solve(t(RS), y1))) / 2 # -(determinant(S)$modulus[1] + crossprod(y1, chol2inv(chol(S)) %*% y1)) / 2
+  # Find estimation of s2
+  s2hat <- (crossprod(solve(t(RS), y1))) / n1
+
+  if(return.s2phat) {
+    return(s2hat)
+  }
+
+  l <- -(2*sum(log(diag(RS))) + n1 * log(s2hat) + n1) / 2 # -(determinant(S)$modulus[1] + crossprod(y1, chol2inv(chol(S)) %*% y1)) / 2
   return(l)
 }
 
@@ -180,9 +188,8 @@ loglik1_test0_h <- function(par, y1, K1_list, K2, i1) { # par = h12, h22,..., si
 #' This function computes the gradient of the log-likelihood for the full model (Y1)
 #' in the "test for zero" scenario, using h2/s2 parameterization.
 #'
-#' @param par A numeric vector of parameters (h12, h22, ..., h2M, s2).
-#'   `par[1:n_K1]` corresponds to `K1_list`, `par[length(par)-1]` corresponds to `K2`,
-#'   and `par[length(par)]` is the total variance `s2`.
+#' @param par A numeric vector of parameters (h21, h22, ..., h2M). The preceding elements are
+#'   proportions of variance (`h2_i`). The total variance `s2` has closed form estimation.
 #' @param y1 Numeric vector of observed data for the Y1 subset.
 #' @param K1_list A list of full covariance matrices (pre-transformed by V2) corresponding to the first set of `h2_i` parameters.
 #' @param K2 A numeric vector representing the diagonal values of the transformed K2 matrix.
@@ -190,25 +197,31 @@ loglik1_test0_h <- function(par, y1, K1_list, K2, i1) { # par = h12, h22,..., si
 #' @return A numeric vector of gradients corresponding to each parameter in `par`.
 grad1_test0_h <- function(par, y1, K1_list, K2, i1) { # par = h12, h22,...h2M, sigma2, K2 is vector
   n_K1 <- length(K1_list)
+  n1 <- length(y1)
 
-  S <- par[length(par)] * (Reduce(`+`, lapply(1:n_K1, function(j) {par[j] * K1_list[[j]][i1, i1]})) +
-                             diag(par[length(par)-1]*K2[i1] + (1 - sum(par[-length(par)]))))
+  S <- Reduce(`+`, lapply(1:n_K1, function(j) {par[j] * K1_list[[j]][i1, i1]})) +
+                             diag(par[length(par)]*K2[i1] + (1 - sum(par))) # par[length(par)] * () # Sigma / s2
 
   # Find upper triangular Cholesky factor of S
   RS <- chol(S)
-  # res <- Sinv%*%y1
-  res <- solve(RS, solve(t(RS), y1))
+
+  # Find estimation of s2
+  temp <- solve(t(RS), y1)
+  s2hat <- (crossprod(temp)) / n1
+
+  # res <- Sigma_inv%*%y1 * s2
+  res <- solve(RS, temp) # / s2hat
 
   u1_vec <- sapply(1:n_K1, function(j) {
     Dj <- K1_list[[j]][i1, i1] - diag(length(y1))
-    par[length(par)] / 2 * (crossprod(res, Dj %*% res) - sum(diag(solve(RS, solve(t(RS), Dj))))) # sum(diag(Sinv %*% Dj)))
+    (crossprod(res, Dj %*% res) / s2hat - sum(diag(solve(RS, solve(t(RS), Dj))))) / 2 # sum(diag(Sinv %*% Dj)))  # par[length(par)] * ()
   })
 
   D2 <- K2[i1] - 1
-  u2 <- par[length(par)] / 2 * (crossprod(res, D2 * res) - sum(diag(solve(RS, solve(t(RS), D2))))) # sum(diag(Sinv * D2)))
-  usigma2 <- 1/2/par[length(par)] * (crossprod(y1, res) - length(y1))
+  u2 <- (crossprod(res, D2 * res) / s2hat - sum(diag(solve(RS, solve(t(RS), D2))))) / 2 # sum(diag(Sinv * D2)))   # par[length(par)]  * ()
+  # usigma2 <- 1/2/par[length(par)] * (crossprod(y1, res) - length(y1))
 
-  return(c(u1_vec, u2, usigma2))
+  return(c(u1_vec, u2)) # , usigma2
 }
 
 
@@ -217,10 +230,8 @@ grad1_test0_h <- function(par, y1, K1_list, K2, i1) { # par = h12, h22,...h2M, s
 #' This function computes the log-likelihood for the conditional model (Y0|Y1) in the
 #' "test for zero" scenario, using h2/s2 parameterization.
 #'
-#' @param par A numeric vector of parameters for the null hypothesis. `par[1]` is
+#' @param par A numeric vector of parameters for (h21, h22, ..., h2M, s2). `par[M]` is
 #'   the `h2` for `K2`, and `par[length(par)]` is the total variance `s2`.
-#' @param rho A numeric vector of fixed `h2` values (h2_1, h2_2, ...) under the null
-#'   hypothesis. These correspond to `K1_list`.
 #' @param y0 Numeric vector of observed data for the Y0 subset.
 #' @param y1 Numeric vector of observed data for the Y1 subset.
 #' @param K1_list A list of full covariance matrices (pre-transformed by V2) corresponding to `rho`.
@@ -228,14 +239,14 @@ grad1_test0_h <- function(par, y1, K1_list, K2, i1) { # par = h12, h22,...h2M, s
 #' @param i1 Indices used to subset the data and K matrices for Y1.
 #' @param i0 Indices used to subset the data and K matrices for Y0.
 #' @return The log-likelihood value.
-loglik01_test0_h <- function(par, rho, y0, y1, K1_list, K2, i1, i0) { # length of par is 2: h2M, sigma2, rho:h21,...,h2_{M-1}
+loglik01_test0_h <- function(par, y0, y1, K1_list, K2, i1, i0) { # length of par is M+1: h21,...,h2M, s2     # previous:[par:h2M, sigma2, rho:h21,...,h2_{M-1}]
   n_K1 <- length(K1_list)
 
-  S00 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i0, i0]})) +
-                             diag(par[1] * K2[i0] + (1 - sum(rho) - par[1])))
-  S01 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i0, i1]})))       # + par[1]*K2[i0, i1])
-  S11 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {rho[j] * K1_list[[j]][i1, i1]})) +
-                             diag(par[1] * K2[i1] + (1 - sum(rho) - par[1])))
+  S00 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {par[j] * K1_list[[j]][i0, i0]})) +
+                             diag(par[n_K1+1] * K2[i0] + (1 - sum(par[-length(par)]))))
+  S01 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {par[j] * K1_list[[j]][i0, i1]})))       # + par[1]*K2[i0, i1])
+  S11 <- par[length(par)]*(Reduce(`+`, lapply(1:n_K1, function(j) {par[j] * K1_list[[j]][i1, i1]})) +
+                             diag(par[n_K1+1] * K2[i1] + (1 - sum(par[-length(par)]))))
   # # print(paste("last eigen:", eigen(S11)$values[dim(S11)[1]]))
   # S01.11_inv <- S01 %*% chol2inv(chol(S11))
   # S <- S00 - tcrossprod(S01.11_inv, S01)
@@ -265,7 +276,7 @@ loglik01_test0_h <- function(par, rho, y0, y1, K1_list, K2, i1, i0) { # length o
 #' Calculate Log-Likelihood (Test for Zero Method, H2/S2 Parameterization, Null Hypothesis)
 #'
 #' This function computes the log-likelihood specifically for the null hypothesis
-#' ($h_1^2 = 0$) within the "test for zero" scenario, using h2/s2 parameterization.
+#' ($h_1^2 =...=h_{M-1}^2= 0$) within the "test for zero" scenario, using h2/s2 parameterization.
 #' It's for finding theta_hat under H0 when `K1_list` components are zero, leaving only K2 and error.
 #'
 #' @param par A numeric value representing the h2 for K2.
@@ -275,8 +286,8 @@ loglik01_test0_h <- function(par, rho, y0, y1, K1_list, K2, i1, i0) { # length o
 #' @return The log-likelihood value.
 loglik01_H0_test0_h <- function(par, y0, K2, i0) { # to find theta_hat under h_1^2 = 0. NOT for evaluation of L_Y0|Y1(theta_hat1)
   dseq <- par * K2[i0] + 1-par
-  s2 <- sum(y0^2 / dseq) / length(y0)
-  l <- -(length(y0)*log(s2) + sum(log(dseq)) + length(y0)) / 2  #sum(log(dseq) + y0^2/s2/dseq)) / 2
+  s2hat <- sum(y0^2 / dseq) / length(y0)
+  l <- -(length(y0)*log(s2hat) + sum(log(dseq)) + length(y0)) / 2  #sum(log(dseq) + y0^2/s2/dseq)) / 2
   return(l)
 }
 
@@ -294,8 +305,8 @@ loglik01_H0_test0_h <- function(par, y0, K2, i0) { # to find theta_hat under h_1
 #'   Must contain `$par` for estimated parameters.
 #' @param opt01 Optimization result object for the null hypothesis. Must contain `$value` for the log-likelihood.
 #' @return The likelihood ratio (exp(L_theta1 - L_rho)).
-ratio_test0_h <- function(y0, y1, K1_list, K2, i1, i0, opt1, opt01) { # K2 is vector
-  l_theta1 <- loglik01_test0_h(opt1$par[(length(K1_list)+1):length(opt1$par)], opt1$par[1:length(K1_list)],
+ratio_test0_h <- function(y0, y1, K1_list, K2, i1, i0, opt1, s2hat1, opt01) { # K2 is vector
+  l_theta1 <- loglik01_test0_h(c(opt1$par, s2hat1),  # opt1$par[(length(K1_list)+1):length(opt1$par)], opt1$par[1:length(K1_list)],
                                y0=y0, y1=y1, K1_list=K1_list, K2=K2, i1=i1, i0=i0)
   l_rho <- opt01$value
   return(exp(l_theta1 - l_rho))
@@ -341,20 +352,21 @@ slrt_test0 <- function(y, K1_list, K2_list, i1, i0, parameter.set = 'h2', TOL = 
   if (parameter.set == 'h2') {
     # find consMat and consVec
     consMat <- rbind(
-      c(-rep(1, n_K1+1),0),           # h1 + h2 + ... + hJ ≤ 1 → -(h1 + ... + hJ) ≥ -1
-      diag(n_K1+2)               # hi ≥ 0 , s2≥ 0
+      -rep(1, n_K1+1),           # h1 + h2 + ... + hJ ≤ 1 → -(h1 + ... + hJ) ≥ -1
+      diag(n_K1+1)               # hi ≥ 0
     )
-    consVec <- c(-1+TOL, rep(0, n_K1+2))
+    consVec <- c(-1+TOL, rep(0, n_K1+1))
 
     # find mles
-    opt1 = stats::constrOptim(theta = c(rep(1/(n_K1+2), n_K1+1), 1), loglik1_test0_h, control = list(fnscale=-1),
+    opt1 = stats::constrOptim(theta = rep(1/(n_K1+2), n_K1+1), loglik1_test0_h, control = list(fnscale=-1),
                               grad = grad1_test0_h, method = "BFGS", ui = consMat, ci=consVec,
                               y1=y1, K1_list=K1_list, K2=K2, i1=i1)
+    s2hat1 <- loglik1_test0_h(par=opt1$par, y1=y1, K1_list=K1_list, K2=K2, i1=i1, return.s2phat = TRUE)
 
     opt01 = stats::optim(par = 0, loglik01_H0_test0_h, control = list(fnscale=-1), # par is h2_M
                          method = "L-BFGS-B", lower = TOL, upper = 1-TOL,
                          y0=y0, K2=K2, i0=i0)
-    teststat <- ratio_test0_h(y0=y0, y1=y1, K1_list=K1_list, K2=K2, i1=i1, i0=i0, opt1=opt1, opt01=opt01)
+    teststat <- ratio_test0_h(y0=y0, y1=y1, K1_list=K1_list, K2=K2, i1=i1, i0=i0, opt1=opt1, s2hat1=s2hat1, opt01=opt01)
     return(teststat)
 
   } else if (parameter.set == 'sigma2') { # num of pars is n_K+1
