@@ -4,7 +4,7 @@
 \alias{loglik01_naive_h}
 \title{Calculate Log-Likelihood (Naive Method, H2/S2 Parameterization, Conditional Model)}
 \usage{
-loglik01_naive_h(par, rho, s2hat = NULL, y0, y1, K1_list, K2_list, i1, i0)
+loglik01_naive_h(par, rho, s2hat = NULL, y, K1_list, K2_list, i1, i0)
 }
 \arguments{
 \item{par}{A numeric vector of parameters (h21, h22, ..., h2M) for the
@@ -16,9 +16,7 @@ hypothesis. These correspond to \code{K1_list}.}
 
 \item{s2hat}{A numeric value of given estimation of s2. Default as NULL.}
 
-\item{y0}{Numeric vector of observed data for the Y0 subset.}
-
-\item{y1}{Numeric vector of observed data for the Y1 subset.}
+\item{y}{Numeric vector of whole observed data for the Y.}
 
 \item{K1_list}{A list of full covariance matrices corresponding to the \code{rho} parameters.}
 

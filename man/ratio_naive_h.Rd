@@ -4,12 +4,10 @@
 \alias{ratio_naive_h}
 \title{Calculate Likelihood Ratio (Naive Method, H2/S2 Parameterization)}
 \usage{
-ratio_naive_h(y0, y1, K1_list, K2_list, i1, i0, opt1, s2hat1, opt01)
+ratio_naive_h(y, K1_list, K2_list, i1, i0, opt1, s2hat1, opt01)
 }
 \arguments{
-\item{y0}{Numeric vector of observed data for the Y0 subset.}
-
-\item{y1}{Numeric vector of observed data for the Y1 subset.}
+\item{y}{Numeric vector of observed data for the whole Y.}
 
 \item{K1_list}{A list of full covariance matrices corresponding to the parameters that are fixed under the null.}
 
