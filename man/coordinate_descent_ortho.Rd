@@ -7,14 +7,14 @@
 coordinate_descent_ortho(
   y,
   K_list,
+  loglik,
   grad_list,
-  init = NULL,
   lr = 0.1,
   TOL = 1e-08,
-  max_iter = 1000,
-  fix_s2_indices = NULL,
-  fixed_s2_values = NULL,
-  parameter.set
+  max_iter = 10000,
+  fix_indices = NULL,
+  fixed_values = NULL,
+  parameter.set = "sigma2"
 )
 }
 \arguments{
@@ -23,22 +23,22 @@ coordinate_descent_ortho(
 \item{K_list}{A list of numeric vectors, where each \code{K_list[[i]]} represents the
 diagonal values of a transformed covariance matrix.}
 
+\item{loglik}{A log-likelihood function to be observed during optimization.}
+
 \item{grad_list}{A list of gradient functions. For 'sigma2' it's \code{list(grad_ortho_s2i, grad_ortho_s2e)}.
 For 'h2', it's \code{list(grad_ortho_h2i)} (as s2 has a closed form).}
-
-\item{init}{Initial guess for parameters. If \code{NULL}, initializes based on \code{parameter.set}.}
 
 \item{lr}{Learning rate for the optimization.}
 
 \item{TOL}{Numerical tolerance for convergence and constraints (default: 1e-8).}
 
-\item{max_iter}{Maximum number of iterations for the coordinate descent.}
+\item{max_iter}{Maximum number of iterations for the coordinate descent. Default at 10000}
 
-\item{fix_s2_indices}{A numeric vector of indices of parameters to fix during optimization.
+\item{fix_indices}{A numeric vector of indices of parameters to fix during optimization.
 (e.g., \code{c(1)} to fix the first parameter).}
 
-\item{fixed_s2_values}{A numeric vector of values for the fixed parameters,
-corresponding to \code{fix_s2_indices}.}
+\item{fixed_values}{A numeric vector of values for the fixed parameters,
+corresponding to \code{fix_indices}.}
 
 \item{parameter.set}{A string indicating the parameterization:
 'h2' for proportions of variance (h2_i) and total variance (s2), or

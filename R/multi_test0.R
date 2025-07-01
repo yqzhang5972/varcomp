@@ -22,7 +22,12 @@ loglik1_test0_s <- function(par, y1, K1_list, K2, i1) { # K2 is a vector of diag
   S <- S + diag(par[length(par)-1] * K2[i1]  + par[length(par)] )  # Last element is residual variance
 
   # Find upper triangular Cholesky factor of S
-  RS <- chol(S)
+  RS <- try(chol(S), silent = T)
+
+  # check if S is pd, matrixcalc::is.positive.definite(S)
+  if(inherits(RS, "try-error")) {
+    return(-1e10)
+  }
 
   # Compute log-likelihood
   l <- -(2*sum(log(diag(RS))) + crossprod(solve(t(RS), y1))) / 2 # -(determinant(S)$modulus[1] + crossprod(y1, chol2inv(chol(S)) %*% y1)) / 2
@@ -80,7 +85,7 @@ loglik01_test0_s <- function(par, rho, y0, y1, K1_list, K2, i1, i0) { # K1_list 
   S <- S00 - S01 %*% S11inv.01t
 
   # Symmetrize
-  S <- Matrix::forceSymmetric(S)  # (S + t(S)) / 2 # as.matrix
+  S <- as.matrix(Matrix::forceSymmetric(S))  # (S + t(S)) / 2 # as.matrix
 
   # Find upper triangular Cholesky factor of S
   RS <- try(chol(S), silent = T)
@@ -169,7 +174,12 @@ loglik1_test0_h <- function(par, y1, K1_list, K2, i1, return.s2phat = FALSE) { #
                              diag(par[length(par)]*K2[i1] + (1 - sum(par))) # par[length(par)] * ()
 
   # Find upper triangular Cholesky factor of S
-  RS <- chol(S)
+  RS <- try(chol(S), silent = T)
+
+  # check if S is pd, matrixcalc::is.positive.definite(S)
+  if(inherits(RS, "try-error")) {
+    return(-1e10)
+  }
 
   # Find estimation of s2
   s2hat <- (crossprod(solve(t(RS), y1))) / n1
@@ -257,7 +267,7 @@ loglik01_test0_h <- function(par, y0, y1, K1_list, K2, i1, i0) { # length of par
   S <- S00 - S01 %*% S11inv.01t
 
   # Symmetrize
-  S <- Matrix::forceSymmetric(S)  # (S + t(S)) / 2 # as.matrix
+  S <- as.matrix(Matrix::forceSymmetric(S))  # (S + t(S)) / 2 # as.matrix
 
   # Find upper triangular Cholesky factor of S
   RS <- try(chol(S), silent = T)

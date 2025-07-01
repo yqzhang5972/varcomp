@@ -82,7 +82,7 @@ loglik01_naive_s <- function(par, rho, y0, y1, K1_list, K2_list, i1, i0) { # K1_
   S <- S00 - S01 %*% S11inv.01t
 
   # Symmetrize
-  S <- Matrix::forceSymmetric(S)  # (S + t(S)) / 2 # as.matrix
+  S <- as.matrix(Matrix::forceSymmetric(S))  # (S + t(S)) / 2 # as.matrix
 
   # Find upper triangular Cholesky factor of S
   RS <- try(chol(S), silent = T)
@@ -249,7 +249,7 @@ loglik01_naive_h <- function(par, rho, s2hat = NULL, y, K1_list, K2_list, i1, i0
   S <- S00 - S01 %*% S11inv.01t
 
   # Symmetrize
-  S <- Matrix::forceSymmetric(S)  # (S + t(S)) / 2 # as.matrix
+  S <- as.matrix(Matrix::forceSymmetric(S))  # (S + t(S)) / 2 # as.matrix
 
   # Find upper triangular Cholesky factor of S
   RS <- try(chol(S), silent = T)

@@ -4,7 +4,17 @@
 \alias{slrt_ortho}
 \title{Spatial Likelihood Ratio Test for multiple variance components (KiKj=0 method)}
 \usage{
-slrt_ortho(y, K1_list, K2_list, i1, i0, rho, parameter.set = "h2", TOL = 1e-08)
+slrt_ortho(
+  y,
+  K1_list,
+  K2_list,
+  i1,
+  i0,
+  rho,
+  parameter.set = "h2",
+  TOL = 1e-08,
+  max_iter = 1e+05
+)
 }
 \arguments{
 \item{y}{Numeric vector of observed data.}
@@ -26,6 +36,8 @@ For 'h2' parameter set, these are h2 proportions. For 'sigma2', these are varian
 'sigma2' for direct variance components (s21, s22, ..., s2e).}
 
 \item{TOL}{Numerical tolerance for convergence and constraints (default: 1e-8).}
+
+\item{max_iter}{Maximum number of iterations for the coordinate descent. Default at 100000}
 }
 \value{
 The likelihood ratio test statistic.
