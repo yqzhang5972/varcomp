@@ -1,59 +1,67 @@
 #' Calculate Log-Likelihood (Orthogonal K, Sigma2 Parameterization)
 #'
-#' Computes the log-likelihood for the orthogonal K matrices case with direct
+#' Computes the log-likelihood of Y1 for the orthogonal K matrices case with direct
 #' sigma2 parameterization (s21, s22, ..., s2e). K_list contains diagonal values.
 #'
 #' @param par A numeric vector of variance component parameters (s21, s22, ..., s2e).
 #'   The last element is assumed to be the residual error variance (s2e).
-#' @param y Numeric vector of observed data.
+#' @param y Numeric vector of observed data of Y1.
 #' @param K_list A list of numeric vectors, where each `K_list[[i]]` represents the
 #'   diagonal values of a transformed covariance matrix, corresponding to `par[i]`.
 #' @return The log-likelihood value.
-loglik_ortho_s <- function(par, y, K_list) {
+loglik1_ortho_s <- function(par, y, K_list) {
   # Calculate the denominator: sum(par_i * K_i) + s2e
   deno <- Reduce(`+`, lapply(1:(length(par)-1), function(j) {par[j] * K_list[[j]]}))  + par[length(par)]
   l <- -(sum(log(deno) + y^2 / deno)) / 2
   return(l)
 }
 
-#' Calculate Gradient (Orthogonal K, Sigma2 Parameterization, for s2_i)
-#'
-#' Computes the gradient of the log-likelihood with respect to a specific `s2_i`
-#' parameter in the orthogonal K matrices case.
-#'
-#' @param s2i_param_index The index of the specific `s2_i` in the `par` vector.
-#' @param par The full parameter vector (s21, s22, ..., s2e).
-#' @param y Numeric vector of observed data.
-#' @param K_list A list of numeric vectors, where each `K_list[[i]]` represents the
-#'   diagonal values of a transformed covariance matrix.
-#' @param TOL Numerical tolerance to be considered as zero (default: 1e-8).
-#' @return The gradient value for `s2_i`.
-grad_ortho_s2i <- function(s2i_param_index, par, y, K_list, TOL = 1e-8) {
-  deno <- Reduce(`+`, lapply(1:(length(par)-1), function(j) {par[j] * K_list[[j]]}))  + par[length(par)]
-  Ki <- K_list[[s2i_param_index]]
-  g <- -sum(Ki / deno * (1 - y^2 / deno)) / 2
-  return(g)
-}
 
-#' Calculate Gradient (Orthogonal K, Sigma2 Parameterization, for s2e)
+#' Calculate Log-Likelihood (Orthogonal K, Sigma2 Parameterization)
 #'
-#' Computes the gradient of the log-likelihood with respect to `s2e` (residual error variance)
-#' in the orthogonal K matrices case.
+#' Computes the log-likelihood of Y0 for the orthogonal K matrices case with direct
+#' sigma2 parameterization (s21, s22, ..., s2e). K_list contains diagonal values.
 #'
-#' @param par The full parameter vector (s21, s22, ..., s2e).
-#' @param y Numeric vector of observed data.
+#' @param par A numeric vector of variance component parameters (s21, s22, ..., s2e)
+#'   for the parameters being optimized under the null hypothesis (excluding rho).
+#'   The last element is assumed to be the residual error variance (s2e).
+#' @param rho A numeric vector of fixed variance component parameters (s21, s22, ...)
+#'   under the null hypothesis. These correspond to `K1_list`.
+#' @param y Numeric vector of observed data of Y0.
 #' @param K_list A list of numeric vectors, where each `K_list[[i]]` represents the
-#'   diagonal values of a transformed covariance matrix.
-#' @return The gradient value for `s2e`.
-grad_ortho_s2e <- function(par, y, K_list) {
-  # Calculate denominator: sum(par_s2_i * K_i) + s2e_val
-  deno <- Reduce(`+`, lapply(1:(length(par)-1), function(j) {par[j] * K_list[[j]]}))  + par[length(par)]
-  g <- -sum(1 / deno * (1 - y^2 / deno)) / 2
-  return(g)
+#'   diagonal values of a transformed covariance matrix, corresponding to `par[i]`.
+#' @return The log-likelihood value.
+loglik0_ortho_s <- function(par, rho, y, K_list) { # rho corresponding to K1_list
+  # Calculate the denominator: sum(par_i * K_i) + s2e
+  deno <- Reduce(`+`, lapply(1:(length(rho)), function(j) {rho[j] * K_list[[j]]}))
+  deno <- deno + Reduce(`+`, lapply(1:(length(par)-1), function(j) {par[j] * K_list[[j+length(rho)]]}))  + par[length(par)]
+
+  l <- -(sum(log(deno) + y^2 / deno)) / 2
+  return(l)
 }
 
 
+#' Calculate Likelihood Ratio (Orthogonal K, Sigma2 Parameterization)
+#'
+#' Computes the likelihood ratio for the orthogonal method with sigma2 parameterization.
+#'
+#' @param y Numeric vector of observed data of Y0.
+#' @param K_list A list of numeric vectors, where each `K_list[[i]]` represents the
+#'   diagonal values of a transformed covariance matrix, corresponding to `par[i]`.
+#' @param opt1 Optimization result object for the alternative hypothesis (full model).
+#'   Must contain `$par` for estimated parameters.
+#' @param opt01 Optimization result object for the null hypothesis. Must contain `$value` for the log-likelihood.
+#' @return The likelihood ratio (exp(L_theta1 - L_rho)).
+ratio_ortho_s <- function(y, K_list, opt1, opt01) {
+  n_K1 <- length(opt1$par) - length(opt01$par)
+  # Compute log-likelihood under theta1
+  l_theta1 <- loglik0_ortho_s(par = opt1$par[-(1:n_K1)], rho = opt1$par[1:n_K1],
+                              y = y, K_list=K_list)
+  # Null model log-likelihood
+  l_rho <- opt01$value
 
+  return(exp(l_theta1 - l_rho))
+}
 
 
 
@@ -62,28 +70,57 @@ grad_ortho_s2e <- function(par, y, K_list) {
 #' Calculate Log-Likelihood (Orthogonal K, H2/S2 Parameterization)
 #'
 #' Computes the log-likelihood for the orthogonal K matrices case with h2/s2 parameterization.
-#' `par` is ordered as (h12, h22, ..., s2).
+#' `par` is ordered as (h12, h22, ...). s2 has closed form estimation.
 #'
 #' @param par A numeric vector of parameters. `par[1]` to `par[length(par)-1]`
 #'   are `h2_i` (proportions of variance for `K_list[[i]]`). The last parameter,
 #'   `par[length(par)]`, is `s2` (total variance).
-#' @param y Numeric vector of observed data.
+#' @param y Numeric vector of observed data Y1.
 #' @param K_list A list of numeric vectors, where each `K_list[[i]]` represents the
 #'   diagonal values of a transformed covariance matrix.
+#' @param return.s2phat Boolean. Determine if estimation of s2 is returned, default at FALSE
 #' @return The log-likelihood value.
-loglik_ortho_h <- function(par, y, K_list) {
+loglik1_ortho_h <- function(par, y, K_list, return.s2phat= FALSE) {
   n_K <- length(K_list)
-
-  deno <- par[length(par)] * (Reduce(`+`, lapply(1:n_K, function(j) {par[j] * K_list[[j]]})) +
-                                1-sum(par[1:n_K]))
-  # # change parameter set to s2i and s2e
-  # s2_i_list <- lapply(par[1:n_K], function(h2) h2 * par[length(par)])
-  # s2e <- par[length(par)] * (1 - sum(par[1:n_K]))
-  #
-  # deno <- Reduce(`+`, lapply(1:n_K, function(j) {s2_i_list[[j]] * K_list[[j]]}))  + s2e
-  l <- -(sum(log(deno) + y^2 / deno)) / 2
+  deno <- Reduce(`+`, lapply(1:n_K, function(j) {par[j] * K_list[[j]]})) + 1-sum(par)           # Sigma / s2
+  # if (deno < TOL) {
+  #   return(-1e10)
+  # }
+  s2hat <- sum(y^2 / deno) / length(y)
+  if(return.s2phat) {
+    return(s2hat)
+  }
+  l <- -(sum(log(deno)) + length(y) * log(s2hat) + length(y)) / 2 # -(sum(log(deno) + y^2 / deno)) / 2
   return(l)
 }
+
+#' Calculate Log-Likelihood (Orthogonal K, H2/S2 Parameterization)
+#'
+#' Computes the log-likelihood for the orthogonal K matrices case with h2/s2 parameterization.
+#' `par` is ordered as (h21, h22, ..., h2M).
+#'
+#' @param par A numeric vector of parameters (h21, h22, ..., h2M). The preceding elements are
+#'   proportions of variance (`h2_i`). The total variance `s2` has closed form estimation.
+#' @param rho A numeric vector of fixed `h2` values (h2_1, h2_2, ...) under the null
+#'   hypothesis. These correspond to `K1_list`.
+#' @param y Numeric vector of observed data Y0.
+#' @param K_list A list of numeric vectors, where each `K_list[[i]]` represents the
+#'   diagonal values of a transformed covariance matrix.
+#' @param s2hat A numeric value of given estimation of s2. Default as NULL.
+#' @return The log-likelihood value.
+loglik0_ortho_h <- function(par, rho, y, K_list, s2hat = NULL) {
+  deno <- Reduce(`+`, lapply(1:length(rho), function(j) {rho[j] * K_list[[j]]}))                # Sigma / s2
+  deno <- deno + Reduce(`+`, lapply(1:length(par), function(j) {par[j] * K_list[[j+length(rho)]]})) + 1-sum(par)-sum(rho)
+
+  if (is.null(s2hat)) {
+    s2hat <- sum(y^2 / deno) / length(y)
+    l <- -(sum(log(deno)) + length(y) * log(s2hat) + length(y)) / 2 # -(sum(log(deno) + y^2 / deno)) / 2
+  } else {
+    l <- -(sum(log(deno)) + length(y) * log(s2hat) + sum(y^2 / deno) / s2hat) / 2
+  }
+  return(l)
+}
+
 
 #' Calculate Gradient (Orthogonal K, H2/S2 Parameterization, for h2_i)
 #'
@@ -100,187 +137,95 @@ loglik_ortho_h <- function(par, y, K_list) {
 grad_ortho_h2i <- function(h2i_param_index, par, y, K_list, TOL = 1e-8) {
   n_K <- length(K_list)
 
-  deno <- par[length(par)] * (Reduce(`+`, lapply(1:n_K, function(j) {par[j] * K_list[[j]]})) +
-                                1-sum(par[1:n_K]))
+  deno <- Reduce(`+`, lapply(1:n_K, function(j) {par[j] * K_list[[j]]})) + 1-sum(par)           # Sigma / s2
+  s2hat <- sum(y^2 / deno) / length(y)
+
 
   # Derivative of D with respect to h2_i:
   # dD/dh2_i = s2 * K_i - s2
   # Note: K_list[[h2i_param_index]] corresponds to the specific h2_i at that index.
-  dD_dh2i <- par[length(par)] * (K_list[[h2i_param_index]] - 1)
+  dD_dh2i <- K_list[[h2i_param_index]] - 1 # grad / s2
 
   # Gradient of L wrt h2_i
-  g <- -sum( (1 / deno) * (1 - y^2 / deno) * dD_dh2i ) / 2
+  g <- -sum( (1 / deno) * (1 - y^2 / deno / s2hat) * dD_dh2i ) / 2 # -(sum(dD_dh2i / deno) - length(y)) / 2 # -sum( (1 / deno) * (1 - y^2 / deno) * dD_dh2i ) / 2
   return(g)
 }
 
-
-
-
-
-#' Backtracking Line Search for Maximization
+#' Calculate Gradient (ortho Method, H2/S2 Parameterization, Full Model)
 #'
-#' Performs backtracking line search along a single coordinate direction to find a step size
-#' that satisfies an Armijo-type condition for maximization.
+#' This function computes the gradient of the log-likelihood for the full model (Y1)
+#' using a "naive" approach with full covariance matrices and an h2/s2 parameterization.
+#' `par` is ordered as (h21, h22, ..., h2M).
 #'
-#' This function is typically used in coordinate ascent algorithms where the objective function
-#' is differentiable and maximization is desired. The step is accepted when the function value
-#' increases sufficiently compared to the linear approximation.
-#'
-#' @param f A function to be maximized. Should accept a numeric vector of parameters.
-#' @param grad_i The partial derivative (gradient) with respect to the \code{i}-th coordinate at the current point.
-#' @param x A numeric vector of current parameter values.
-#' @param i An integer index specifying the coordinate to update.
-#' @param direction The direction of the update (usually 1). Negative values reverse the gradient direction.
-#' @param alpha Initial step size (default is 1).
-#' @param beta Step size reduction factor (default is 0.5; must be in (0, 1)).
-#' @param c Armijo condition constant (default is 1e-4; must be small and positive).
-#' @param TOL Small positive number to enforce non-negativity constraint (default is 1e-8).
-#' @param parameter.set A string indicating the parameterization:
-#'   'h2' for proportions of variance (h2_i) and total variance (s2), or
-#'   'sigma2' for direct variance components (s21, s22, ..., s2e).
-#'
-#' @return A numeric value giving the step size that satisfies the backtracking line search condition.
-backtracking_line_search_max <- function(f, grad_i, x, i, direction = 1, alpha = 1, beta = 0.5, c = 1e-4, TOL = 1e-8, parameter.set = "sigma2") {
-  t <- alpha
-  x_new <- x
-  f_x <- f(x)
-  n_par <- length(x)
-
-  while (TRUE) {
-    # enforce positivity
-    x_new[i] <- max(x[i] + t * direction * grad_i, TOL)
-    # Enforce box constraints: [TOL, 1] when h2
-    if (parameter.set == "h2") {
-      # Enforce total sum constraint on first n-1 elements, x_new[i] <- min(x_new[i], 1-TOL)
-      if (i <= n_par - 1) {
-        total_sum <- sum(x_new[1:(n_par - 1)])
-        if (total_sum > 1-TOL) {
-          excess <- total_sum - 1 + TOL
-          x_new[i] <- max(x_new[i] - excess, TOL)
-        }
-      }
-    }
-    if (f(x_new) >= f_x + c * t * grad_i^2) {
-      break
-    }
-    t <- t * beta
-    if (t < 1e-10) break
-  }
-  return(t)
-}
-
-
-
-#' Coordinate Descent Optimization (Orthogonal K)
-#'
-#' This function performs coordinate descent optimization to find maximum likelihood
-#' estimates for parameters in the orthogonal K matrices setting. It supports both
-#' sigma2 and h2 parameterizations.
-#'
-#' @param y Numeric vector of observed data.
+#' @param par A numeric vector of parameters (h21, h22, ..., h2M). The preceding elements are
+#'   proportions of variance (`h2_i`). The total variance `s2` has closed form estimation.
+#' @param y Numeric vector of observed data for the Y1 subset.
 #' @param K_list A list of numeric vectors, where each `K_list[[i]]` represents the
 #'   diagonal values of a transformed covariance matrix.
-#' @param loglik A log-likelihood function to be observed during optimization.
-#' @param grad_list A list of gradient functions. For 'sigma2' it's `list(grad_ortho_s2i, grad_ortho_s2e)`.
-#'   For 'h2', it's `list(grad_ortho_h2i)` (as s2 has a closed form).
-#' @param lr Learning rate for the optimization.
-#' @param TOL Numerical tolerance for convergence and constraints (default: 1e-8).
-#' @param max_iter Maximum number of iterations for the coordinate descent. Default at 10000
-#' @param fix_indices A numeric vector of indices of parameters to fix during optimization.
-#'   (e.g., `c(1)` to fix the first parameter).
-#' @param fixed_values A numeric vector of values for the fixed parameters,
-#'   corresponding to `fix_indices`.
-#' @param parameter.set A string indicating the parameterization:
-#'   'h2' for proportions of variance (h2_i) and total variance (s2), or
-#'   'sigma2' for direct variance components (s21, s22, ..., s2e).
-#' @return A numeric vector of the estimated parameters.
-coordinate_descent_ortho <- function(y, K_list, loglik, grad_list, lr = 0.1, TOL = 1e-8,
-                                     max_iter = 10000, fix_indices = NULL, fixed_values = NULL, parameter.set="sigma2") {
-  n_K <- length(K_list)
-  n_par <- n_K + 1 # s21, s22, ..., s2k, s2e
-
-  # Initialize parameters
-  params <- rep(1, n_K+1)
-
-  # Ensure fixed_indices and fixed_values are consistent, adjust value for h2 settings to make sure sum <= 1
-  if (!is.null(fix_indices)) {
-    if (length(fix_indices) != length(fixed_values)) {
-      stop("Length of fix_indices must match length of fixed_values.")
-    }
-    params[fix_indices] <- fixed_values
-    if (parameter.set=="h2") {
-      params[-fix_indices] <- c(rep((1-sum(fixed_values))/(n_K+1-length(fix_indices)), n_K-length(fix_indices)), 1)
-    }
-  } else if (parameter.set=="h2") {
-    params <- c(rep(1/(n_K+1), n_K), 1)
+#' @param TOL Numerical tolerance to be considered as zero (default: 1e-8).
+#' @return A numeric vector of gradients corresponding to each parameter in `par`.
+grad1_ortho_h <- function(par, y, K_list, TOL = 1e-8) { # y and K_list are subsets
+  n_par <- length(par)
+  gradvec <- numeric(n_par)
+  for (i in 1:n_par) {
+    gradvec[i] <- grad_ortho_h2i(i, par=par, y=y, K_list = K_list)
   }
-  gvec <- numeric(n_par)
-
-  # Define the full objective function for backtracking use
-  f_obj <- function(par) {
-    loglik(par, y = y, K_list = K_list)
-  }
-
-  for (iter in 1:max_iter) {
-    params_old <- params
-
-    # Calculate gradients for s2_i parameters
-    for (i in 1:n_K) {
-      if (is.null(fix_indices) || !(i %in% fix_indices)) {
-        gvec[i] <- grad_list[[1]](i, par=params, y=y, K_list=K_list, TOL=TOL)
-      } else {
-        gvec[i] <- 0 # Gradient is zero for fixed parameters
-      }
-    }
-    # Calculate gradient for s2e
-    if (parameter.set == 'h2') {
-      gvec[n_par] <- 0 # mle of s2 has closed form
-    } else {
-      gvec[n_par] <- grad_list[[2]](par=params, y=y, K_list=K_list)
-    }
-
-    # Update each variable using its gradient
-    for (i in 1:n_K) {
-      if (is.null(fix_indices) || !(i %in% fix_indices)) {
-        step_size <- backtracking_line_search_max(f_obj, gvec[i], params, i, direction = 1, TOL = TOL, parameter.set = parameter.set)
-        # Apply non-negativity constraint
-        params[i] <- max(params[i] + step_size * gvec[i], TOL)  # ascent
-      }
-    }
-    if (parameter.set == 'sigma2') {
-      step_size <- backtracking_line_search_max(f_obj, gvec[n_par], params, n_par, direction = 1, TOL = TOL, parameter.set = "sigma2")
-      # Apply non-negativity constraint
-      params[n_par] <- max(params[n_par] + step_size * gvec[n_par], TOL)  # ascent
-    }
-    # apply sum of h2 less than 1 constraint by scaling params proportionally so their sum is less than 1
-    if (parameter.set == 'h2') {
-      # sum of h2
-      sum_h2 <- sum(params[-length(params)])
-      if (sum_h2 > 1-TOL) {
-        # Scale s2_params proportionally so their sum is 1
-        scale_factor <- (1-TOL) / sum_h2
-        for (i in 1:n_K) {
-          if (is.null(fix_indices) || !(i %in% fix_indices)) {
-            params[i] <- params[i] * scale_factor
-            # Ensure non-negativity after scaling
-            params[i] <- max(params[i], TOL)
-          }
-        }
-      }
-      # find estimator of s2
-      deno <- Reduce(`+`, lapply(1:n_K, function(j) {params[j] * K_list[[j]]})) + 1-sum(params[1:n_K])
-      params[length(params)] <- sum(y^2 / deno) / length(y)
-    }
-    # Convergence check: Stop if changes are small
-    if (max(abs(params - params_old)) < TOL) {
-      break
-    }
-  }
-  if (iter == max_iter) { # reach maximum iteration
-    print("Maximum iteration exceed.")
-  }
-  return(params)
+  return(gradvec)
 }
+
+#' Calculate Gradient (Ortho Method, H2/S2 Parameterization, Conditional Model)
+#'
+#' This function computes the gradient of the log-likelihood for the conditional Model (Y0|Y1)
+#' using a "naive" approach with full covariance matrices and an h2/s2 parameterization.
+#' `par` is ordered as (h21, h22, ..., h2M).
+#'
+#' @param par A numeric vector of parameters (h21, h22, ..., h2M) for the
+#'   parameters being optimized under the null hypothesis. The preceding elements are
+#'   proportions of variance (`h2_i`) for `K2_list`. The the total variance `s2` has closed form estimation.
+#' @param rho A numeric vector of fixed `h2` values (h2_1, h2_2, ...) under the null
+#'   hypothesis. These correspond to `K1_list`.
+#' @param y Numeric vector of observed data for the Y0 subset.
+#' @param K_list A list of numeric vectors, where each `K_list[[i]]` represents the
+#'   diagonal values of a transformed covariance matrix.
+#' @param TOL Numerical tolerance to be considered as zero (default: 1e-8).
+#' @return A numeric vector of gradients corresponding to each parameter in `par`.
+grad0_ortho_h <- function(par, rho, y, K_list, TOL = 1e-8) { # par = h12, h22,..., h2M
+  n_par <- length(par)
+  gradvec <- numeric(n_par)
+  for (i in 1:n_par) {
+    gradvec[i] <- grad_ortho_h2i(i+length(rho), par=c(rho, par), y=y, K_list = K_list)
+  }
+  return(gradvec)
+}
+
+
+#' Calculate Likelihood Ratio (Ortho Method, H2/S2 Parameterization)
+#'
+#' Computes the likelihood ratio for the naive method with h2/s2 parameterization.
+#'
+#' @param y Numeric vector of observed data for the whole Y.
+#' @param K_list A list of numeric vectors, where each `K_list[[i]]` represents the
+#'   diagonal values of a transformed covariance matrix.
+#' @param opt1 Optimization result object for the alternative hypothesis (full model).
+#'   Must contain `$par` for estimated parameters.
+#' @param s2hat1 Numeric scaler as estimation of s2 based on Y1.
+#' @param opt01 Optimization result object for the null hypothesis. Must contain `$value` for the log-likelihood.
+#' @return The likelihood ratio (exp(L_theta1 - L_rho)).
+ratio_ortho_h <- function(y, K_list, opt1, s2hat1, opt01) {
+  n_K1 <- length(opt1$par) - length(opt01$par)
+  # Compute log-likelihood under theta1
+  l_theta1 <- loglik0_ortho_h(par = opt1$par[-(1:n_K1)], rho = opt1$par[1:n_K1], s2hat = s2hat1,
+                              y = y, K_list=K_list)
+  #print(l_theta1)
+  # Null model log-likelihood
+  l_rho <- opt01$value
+  #print(l_rho)
+  return(exp(l_theta1 - l_rho))
+}
+
+
+
+
 
 
 #' Spatial Likelihood Ratio Test for multiple variance components (KiKj=0 method)
@@ -302,12 +247,14 @@ coordinate_descent_ortho <- function(y, K_list, loglik, grad_list, lr = 0.1, TOL
 #'   'h2' for proportions of variance (h2_i) and total variance (s2), or
 #'   'sigma2' for direct variance components (s21, s22, ..., s2e).
 #' @param TOL Numerical tolerance for convergence and constraints (default: 1e-8).
-#' @param max_iter Maximum number of iterations for the coordinate descent. Default at 100000
 #' @return The likelihood ratio test statistic.
 #' @export
-slrt_ortho <- function(y, K1_list, K2_list, i1, i0, rho, parameter.set = 'h2', TOL = 1e-8, max_iter = 100000) {
-  Y0 <- y[i0]
-  Y1 <- y[i1]
+slrt_ortho <- function(y, K1_list, K2_list, i1, i0, rho, parameter.set = 'h2', TOL = 1e-8) {
+  y0 <- y[i0]
+  y1 <- y[i1]
+  n_K1 <- length(K1_list)
+  n_K2 <- length(K2_list)
+  n_K <- n_K1 + n_K2
 
   # Estimate parameters for the full model (alternative hypothesis)
   # K_list_subset_1 will apply index1 to each matrix in K_list
@@ -321,33 +268,40 @@ slrt_ortho <- function(y, K1_list, K2_list, i1, i0, rho, parameter.set = 'h2', T
 
   if (parameter.set == 'sigma2') {
     # Find MLEs
-    est1 <- coordinate_descent_ortho(y = Y1, K_list = c(K1_list_subset_1, K2_list_subset_1), loglik=loglik_ortho_s, max_iter = max_iter,
-                                     grad_list = list(grad_ortho_s2i, grad_ortho_s2e), parameter.set=parameter.set, TOL=TOL)
-
-    est0 <- coordinate_descent_ortho(y = Y0, K_list = c(K1_list_subset_0, K2_list_subset_0), loglik=loglik_ortho_s, max_iter = max_iter,
-                                     grad_list = list(grad_ortho_s2i, grad_ortho_s2e),
-                                     fix_indices = 1:length(K1_list), fixed_values = rho, parameter.set=parameter.set, TOL=TOL)
-    # Calculate log-likelihood for the alternative hypothesis using Y0 and K_list[index0]
-    l_theta1 <- loglik_ortho_s(par = est1, y = Y0, K_list = c(K1_list_subset_0, K2_list_subset_0))
-    # Calculate log-likelihood for the null hypothesis using Y0 and K_list[index0]
-    l_rho <- loglik_ortho_s(par = est0, y = Y0, K_list = c(K1_list_subset_0, K2_list_subset_0))
+    opt1 <- stats::optim(par = rep(1, n_K+1), loglik1_ortho_s, control = list(fnscale=-1),
+                         y=y1, K_list=c(K1_list_subset_1, K2_list_subset_1),
+                         method = "L-BFGS-B", lower = rep(TOL, n_K+1))
+    opt01 <- stats::optim(par = rep(1, n_K2+1), loglik0_ortho_s, control = list(fnscale=-1),
+                          rho = rho, y=y0, K_list=c(K1_list_subset_0, K2_list_subset_0),
+                          method = "L-BFGS-B", lower = rep(TOL, n_K2+1))
+    teststat <- ratio_ortho_s(y=y0, K_list=c(K1_list_subset_0, K2_list_subset_0), opt1, opt01)
 
   } else if (parameter.set == 'h2') {
     # Find MLEs
-    est1 <- coordinate_descent_ortho(y = Y1, K_list = c(K1_list_subset_1, K2_list_subset_1), loglik=loglik_ortho_h,max_iter = max_iter,
-                                     grad_list = list(grad_ortho_h2i), parameter.set=parameter.set, TOL=TOL)
-    print(paste("est1",est1))
-    est0 <- coordinate_descent_ortho(y = Y0, K_list = c(K1_list_subset_0, K2_list_subset_0),  loglik=loglik_ortho_h,max_iter = max_iter,
-                                     grad_list = list(grad_ortho_h2i),
-                                     fix_indices = 1:length(K1_list), fixed_values = rho, parameter.set=parameter.set, TOL=TOL)
-    print(paste("est0",est0))
+    consMat <- rbind(
+      -rep(1, n_K),           # h1 + h2 + ... + hJ ≤ 1 → -(h1 + ... + hJ) ≥ -1
+      diag(n_K)               # hi ≥ 0
+    )
+    consVec <- c(-1+TOL, rep(0, n_K))
+    opt1 = stats::constrOptim(theta = rep(1/(n_K+1), n_K), loglik1_ortho_h, control = list(fnscale=-1),
+                              grad = grad1_ortho_h, method = "BFGS", ui = consMat, ci=consVec,
+                              y=y1, K_list=c(K1_list_subset_1, K2_list_subset_1))
+    s2hat1 <- loglik1_ortho_h(par=opt1$par, y=y1, K_list=c(K1_list_subset_1, K2_list_subset_1), return.s2phat= TRUE)
 
-    # Calculate log-likelihood for the alternative hypothesis using Y0 and K_list[index0]
-    l_theta1 <- loglik_ortho_h(par = est1, y = Y0, K_list = c(K1_list_subset_0, K2_list_subset_0))
-    # Calculate log-likelihood for the null hypothesis using Y0 and K_list[index0]
-    l_rho <- loglik_ortho_h(par = est0, y = Y0, K_list = c(K1_list_subset_0, K2_list_subset_0))
+    consMat01 <- rbind(
+      -rep(1, n_K2),           # hj + ... + hJ ≤ 1-sum(rho) → -(hj + ... + hJ) ≥ -1+sum(rho)
+      diag(n_K2)               # hi ≥ 0
+    )
+    consVec01 <- c(-1+sum(rho)+TOL, rep(0, n_K2))
+    opt01 = stats::constrOptim(theta = rep((1-sum(rho))/(n_K2+1), n_K2), loglik0_ortho_h, control = list(fnscale=-1),
+                               grad = grad0_ortho_h, method = "BFGS", ui = consMat01, ci=consVec01,
+                               rho=rho, y=y0, K_list=c(K1_list_subset_0, K2_list_subset_0))
+    #print(opt1)
+    #print(opt01)
+    teststat <- ratio_ortho_h(y=y0, K_list=c(K1_list_subset_0, K2_list_subset_0), opt1, s2hat1=s2hat1, opt01)
   } else {
     stop("parameter.set must be 'h2' or 'sigma2'.")
   }
-  return(exp(l_theta1 - l_rho))
+
+  return(teststat)
 }

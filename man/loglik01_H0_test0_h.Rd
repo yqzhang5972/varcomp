@@ -20,6 +20,6 @@ The log-likelihood value.
 }
 \description{
 This function computes the log-likelihood specifically for the null hypothesis
-($h_1^2 =...=h_{M-1}^2= 0$) within the "test for zero" scenario, using h2/s2 parameterization.
+\eqn{h_1^2 = \dots = h_{M-1}^2 = 0} within the "test for zero" scenario, using h2/s2 parameterization.
 It's for finding theta_hat under H0 when \code{K1_list} components are zero, leaving only K2 and error.
 }

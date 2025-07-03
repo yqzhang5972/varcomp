@@ -286,7 +286,7 @@ loglik01_test0_h <- function(par, y0, y1, K1_list, K2, i1, i0) { # length of par
 #' Calculate Log-Likelihood (Test for Zero Method, H2/S2 Parameterization, Null Hypothesis)
 #'
 #' This function computes the log-likelihood specifically for the null hypothesis
-#' ($h_1^2 =...=h_{M-1}^2= 0$) within the "test for zero" scenario, using h2/s2 parameterization.
+#' \eqn{h_1^2 = \dots = h_{M-1}^2 = 0} within the "test for zero" scenario, using h2/s2 parameterization.
 #' It's for finding theta_hat under H0 when `K1_list` components are zero, leaving only K2 and error.
 #'
 #' @param par A numeric value representing the h2 for K2.
